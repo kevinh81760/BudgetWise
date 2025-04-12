@@ -1,11 +1,5 @@
-from flask import current_app
+from sqlalchemy import Column, Integer, String
+from database import Base
 
-def add_budget():
-    return null
-
-def edit_budget():
-    return null
-
-def delete_budget():
-    return null
-
+class Budget(Base):
+    __tablename__ = 'budget'

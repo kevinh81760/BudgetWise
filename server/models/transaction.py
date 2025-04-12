@@ -1,15 +1,5 @@
-from flask import current_app
+from sqlalchemy import Column, Integer, String
+from database import Base
 
-CATEGORIES = [
-    'Food', 'Rent', 'Entertainment', 'Transportation', 'Utilities',
-    'Healthcare', 'Personal', 'Savings', 'Other'
-]
-
-def add_transaction():
-    return null
-
-def edit_transaction():
-    return null
-
-def delete_transation():
-    return null
+class Transaction(Base):
+    __tablename__ = 'transaction'
