@@ -35,7 +35,7 @@ def login():
 
     user = session_db.query(User).filter_by(username=username).first()
 
-    # checks if user exist and checks if the user password  matches with passwordfield
+    # checks if user exist and checks if the user password  matches with password field
     if user and check_password_hash(user.password, password):
         session['user_id'] = user.id
         return "Successfully logged in!"
