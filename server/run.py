@@ -8,9 +8,6 @@ from database import engine, Base
 from models.user import User
 from app.routes.auth_routes import auth
 
-
-from app.routes.main_routes import main
-
 # initializes flask and loads app config
 app = Flask(__name__) 
 app.config.from_object(Config)
@@ -18,8 +15,7 @@ app.config.from_object(Config)
 # create tables in database if they dont exist yet
 Base.metadata.create_all(engine)
 
-# Register your blueprints
-app.register_blueprint(main)
+# register your blueprints
 app.register_blueprint(auth)
 
 if __name__ == '__main__': # Run this only if file is executed directly
