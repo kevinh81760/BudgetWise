@@ -1,18 +1,13 @@
-from sqlalchemy import Column, Integer, String, relationship
-from database import Base
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
+from server.database import Base
 
 class User(Base):
-    __tablename__ = 'user'
+    __tablename__ = "user"
 
     id = Column(Integer, primary_key=True)
-    username = Column(String(100), unique=True, nullable=False)
-    password = Column(String(300), nullable=False)
-    
-    transaction = relationship('Transaction', backref='user', cascade='all, delete-orphan')
-    budget = relationship('Budget', backref='user', cascade='all, delete-orphan')
+    username = Column(String, unique=True, nullable=False)
+    password = Column(String, nullable=False)
 
-    def __repr__(self):
-        return f"<User(username='{self.username}')>"
-
-
-
+    transactions = relationship("UserTransaction", back_populates="user", cascade="all, delete-orphan")
+    budgets = relationship("Budget", back_populates="user", cascade="all, delete-orphan")

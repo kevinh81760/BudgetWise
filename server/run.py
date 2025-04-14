@@ -1,23 +1,20 @@
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.dirname(__file__)))
-
 from flask import Flask
-from config import Config
-from database import engine, Base
-from models.user import User
-from app.routes.auth_routes import auth
+from server.database import engine
+from server.database import Base
+from server.app.routes.auth_routes import auth
+from server.app.routes.transaction_routes import transaction
+from server.app.routes.budget_routes import budget
 
-# initializes flask and loads app config
-app = Flask(__name__) 
-app.config.from_object(Config)
+app = Flask(__name__)
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 
-# create tables in database if they dont exist yet
-Base.metadata.create_all(engine)
-
-# register your blueprints
+# Register routes
 app.register_blueprint(auth)
+app.register_blueprint(transaction)
+app.register_blueprint(budget)
 
-if __name__ == '__main__': # Run this only if file is executed directly
-    app.run(debug=True) # Start Flask in debug mode (auto-reload + error messages)
+# Create DB tables
+Base.metadata.create_all(bind=engine)
 
+if __name__ == "__main__":
+    app.run(debug=True)

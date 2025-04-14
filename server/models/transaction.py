@@ -1,18 +1,15 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from database import Base
 from datetime import datetime
+from server.database import Base
 
-class Transaction(Base):
-    __tablename__ = 'transaction'
+class UserTransaction(Base):
+    __tablename__ = "user_transaction"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
-    category = Column(String(10), nullable=False)
-    amoumt = Column(Float, nullable=False)
-    date_created = Column(DateTime, default=datetime)
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    category = Column(String(50), nullable=False)
+    amount = Column(Float, nullable=False)
+    date_created = Column(DateTime, default=datetime.utcnow)
 
-    user = relationship('User', backref='transaction')
-
-    def __repr__(self):
-        return f"<Transaction(user_id={self.user_id}, amount={self.amount}, type='{self.type}')>"
+    user = relationship("User", back_populates="transactions")
