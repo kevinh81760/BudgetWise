@@ -19,6 +19,7 @@ def add_transaction():
         user_id=data['user_id'],
         category=data['category'],
         amount=data['amount'],
+        type=data['type'],
         date_created=date_obj
     )
     session_db.add(new_transaction)
@@ -37,6 +38,7 @@ def get_transactions(user_id):
             "user_id": t.user_id,
             "category": t.category,
             "amount": t.amount,
+            "type": t.type,
             "date_created": t.date_created.strftime('%Y-%m-%d')
         }
         for t in transactions

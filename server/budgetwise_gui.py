@@ -1,10 +1,10 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import requests
-import matplotlib
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from datetime import datetime
+from collections import defaultdict
+from tkcalendar import DateEntry
 
 CURRENT_USER_ID = None
 
@@ -12,6 +12,11 @@ root = tk.Tk()
 root.title("BudgetWise")
 root.geometry("1000x800")
 root.configure(bg="black")
+
+style = ttk.Style()
+style.theme_use('default')
+style.configure("green.Horizontal.TProgressbar", troughcolor="#333333", background="green") # Green bar for within budget
+style.configure("red.Horizontal.TProgressbar", troughcolor="#333333", background="red") # Red bar for exceeding budget
 
 # ------------ Frames -------------- #
 landing_frame = tk.Frame(root, bg="black")
@@ -27,11 +32,16 @@ def show_frame(frame):
 
 # ------------ Auth Navigation -------------- #
 tk.Label(auth_frame, text="Sign In or Create Account", font=("Arial", 18), bg="black", fg="white").pack(pady=40)
+
+user_action_button = tk.Button(landing_frame, font=("Arial", 10), bg="#222", fg="white")
+user_action_button.place(relx=0.93, rely=0.03, anchor="ne")
+user_action_button.config(text="Sign In", command=lambda: show_frame(auth_frame))
+
 tk.Button(auth_frame, text="Sign In", command=lambda: show_frame(login_frame), font=("Arial", 12), bg="#333", fg="white").pack(pady=10)
 tk.Button(auth_frame, text="Create Account", command=lambda: show_frame(register_frame), font=("Arial", 12), bg="#333", fg="white").pack(pady=10)
 tk.Button(auth_frame, text="Back", command=lambda: show_frame(landing_frame), font=("Arial", 10), bg="gray", fg="white").pack(pady=30)
 
-# ------------ Login Form -------------- #
+# ------------ Login/Logout Form -------------- #
 tk.Label(login_frame, text="Sign In", font=("Arial", 18), bg="black", fg="white").pack(pady=20)
 login_username = tk.Entry(login_frame)
 login_password = tk.Entry(login_frame, show="*")
@@ -39,6 +49,42 @@ tk.Label(login_frame, text="Username", bg="black", fg="white").pack()
 login_username.pack()
 tk.Label(login_frame, text="Password", bg="black", fg="white").pack()
 login_password.pack()
+
+def clear_transactions():
+    for widget in tracking_frame.winfo_children():
+        if widget != transaction_header_wrapper:
+            widget.destroy()
+
+def clear_budgets():
+    for widget in goals_frame.winfo_children():
+        if widget != budget_header_wrapper:
+            widget.destroy()
+
+def clear_chart():
+    ax.clear()
+    ax.set_facecolor("#121212")
+    ax.set_title("Income & Expense Trend", color="white")
+    ax.set_ylabel("Amount ($)", color="white")
+    ax.tick_params(colors="white")
+    fig.patch.set_facecolor("#121212")
+    chart_canvas.draw()
+            
+def logout_user():
+    global CURRENT_USER_ID
+    CURRENT_USER_ID = None
+    user_action_button.config(text="Sign In", command=lambda: show_frame(auth_frame))
+    
+    # Clear the login fields
+    login_username.delete(0, tk.END)
+    login_password.delete(0, tk.END)
+    
+    # Clear old transactions and budgets when user signs out
+    clear_transactions()
+    clear_budgets()
+    clear_chart()
+    messagebox.showinfo("Log Out Sucess", "You have been logged out and your data has been cleared.")
+ 
+    show_frame(auth_frame)
 
 def login_user():
     global CURRENT_USER_ID
@@ -50,12 +96,13 @@ def login_user():
     if response.status_code == 200:
         CURRENT_USER_ID = response.json()["user_id"]
         show_frame(landing_frame)
-        print("Logged in successfully!")
+        user_action_button.config(text="Logout", command=logout_user)
         load_transactions_to_graph()
         display_transactions()
         display_budgets()
+        messagebox.showinfo("Login Success", "Logged In Successfully!")
     else:
-        print("Login failed:", response.text)
+        messagebox.showinfo("401 Login Failure", "Login Failed: Invalid Username/Password")
 
 tk.Button(login_frame, text="Login", command=login_user, bg="#333", fg="white").pack(pady=10)
 tk.Button(login_frame, text="Back", command=lambda: show_frame(auth_frame), font=("Arial", 10), bg="gray", fg="white").pack()
@@ -76,19 +123,21 @@ def register_user():
     }
     response = requests.post("http://localhost:5000/register", json=data)
     if response.status_code == 201:
-        print("Account created! Now you can login.")
+        messagebox.showinfo("Registration Success", "You can now sign into your account.")
         show_frame(login_frame)
+    elif response.status_code == 409:
+        messagebox.showinfo("409 Registration Failure", "Username already exists!")
     else:
-        print("Registration failed:", response.text)
+        messagebox.showinfo("400 Regsitration Failure", "Missing input fields!")
+        
 
 tk.Button(register_frame, text="Register", command=register_user, bg="#333", fg="white").pack(pady=10)
 tk.Button(register_frame, text="Back", command=lambda: show_frame(auth_frame), font=("Arial", 10), bg="gray", fg="white").pack()
 
 # ------------ Landing Page Layout -------------- #
 tk.Label(landing_frame, text="BudgetWise", font=("Arial", 28, "bold"), fg="white", bg="black").pack(pady=20)
-tk.Button(landing_frame, text="Sign In", command=lambda: show_frame(auth_frame), font=("Arial", 10), bg="#222", fg="white").place(relx=0.93, rely=0.03, anchor="ne")
 
-# Scrollable Tracking Frame
+# Scrollable Transaction Frame
 transaction_container = tk.Frame(landing_frame, bg="#121212", bd=1, relief="ridge")
 transaction_container.place(relx=0.05, rely=0.15, relwidth=0.45, relheight=0.25)
 
@@ -101,7 +150,11 @@ tracking_frame.bind(
     "<Configure>",
     lambda e: transaction_canvas.configure(scrollregion=transaction_canvas.bbox("all"))
 )
-transaction_canvas.create_window((0, 0), window=tracking_frame, anchor="nw")
+
+def resize_transaction_frame(event):
+    transaction_canvas.itemconfig(transaction_window, width=event.width)
+
+transaction_window = transaction_canvas.create_window((0.5, 0), window=tracking_frame, anchor="n")
 transaction_canvas.configure(yscrollcommand=transaction_scrollbar.set)
 transaction_canvas.pack(side="left", fill="both", expand=True)
 transaction_scrollbar.pack(side="right", fill="y")
@@ -119,57 +172,106 @@ goals_frame.bind(
     "<Configure>",
     lambda e: budget_canvas.configure(scrollregion=budget_canvas.bbox("all"))
 )
-budget_canvas.create_window((0, 0), window=goals_frame, anchor="nw")
+
+def resize_budget_frame(event):
+    budget_canvas.itemconfig(budget_window, width=event.width)
+    
+budget_window = budget_canvas.create_window((0.5, 0), window=goals_frame, anchor="n")
 budget_canvas.configure(yscrollcommand=budget_scrollbar.set)
 budget_canvas.pack(side="left", fill="both", expand=True)
 budget_scrollbar.pack(side="right", fill="y")
 
-# Income/Expense Section
-income_label = tk.Label(tracking_frame, text="Income & Expense Tracking", bg="#121212", fg="white", font=("Arial", 12, "bold"))
-income_label.pack(pady=(5,0))
+transaction_canvas.bind("<Configure>", resize_transaction_frame)
+budget_canvas.bind("<Configure>", resize_budget_frame)
 
-add_transaction_btn = tk.Button(tracking_frame, text="+ Add Transaction", bg="#222", fg="white")
+# Income/Expense Section
+transaction_header_wrapper = tk.Frame(tracking_frame, bg="#121212")
+transaction_header_wrapper.pack(pady=(5, 0))
+
+income_label = tk.Label(transaction_header_wrapper, text="Income & Expense Tracking", bg="#121212", fg="white", font=("Arial", 12, "bold"))
+income_label.pack()
+
+add_transaction_btn = tk.Button(transaction_header_wrapper, text="+ Add Transaction", bg="#222", fg="white")
 add_transaction_btn.pack(pady=5)
 
-transaction_form = tk.Frame(tracking_frame, bg="#121212")
-category_entry = tk.Entry(transaction_form, width=20)
+transaction_form = tk.Frame(transaction_header_wrapper, bg="#121212")
+transaction_form.pack_forget()
+
+category_entry = ttk.Combobox(transaction_form, values=[
+    "Food", "Transportation", "Housing", "Entertainment", 
+    "Utilities", "Healthcare", "Savings", "Other"
+], state="readonly", width=18)
+
 amount_entry = tk.Entry(transaction_form, width=20)
-date_entry = tk.Entry(transaction_form, width=20)
-category_entry.insert(0, "Category")
-amount_entry.insert(0, "Amount")
-date_entry.insert(0, "YYYY-MM-DD")
+date_entry = DateEntry(transaction_form, width=18, background="black", foreground="white", borderwidth=2, date_pattern='yyyy-mm-dd')
+type_entry = ttk.Combobox(transaction_form, values=["Income", "Expense"], state="readonly", width=18)
+transaction_form.pack_forget() 
+
+category_entry.set("Select Category")
+amount_entry.insert(0, "Amount ($)")
+type_entry.set("Expense") 
+
 category_entry.pack(pady=1)
 amount_entry.pack(pady=1)
 date_entry.pack(pady=1)
+type_entry.pack(pady=1)
+
 submit_btn = tk.Button(transaction_form, text="Submit", command=lambda: submit_transaction(), bg="#444", fg="white")
 submit_btn.pack(pady=5)
 transaction_form.pack_forget()
 
 # Budget Section
-budget_label = tk.Label(goals_frame, text="Budget Goals", bg="#121212", fg="white", font=("Arial", 12, "bold"))
-budget_label.pack(pady=(5,0))
+budget_header_wrapper = tk.Frame(goals_frame, bg="#121212")
+budget_header_wrapper.pack(pady=(5, 0))
 
-add_budget_btn = tk.Button(goals_frame, text="+ Add Budget", bg="#222", fg="white")
+budget_label = tk.Label(budget_header_wrapper, text="Budget Goals", bg="#121212", fg="white", font=("Arial", 12, "bold"))
+budget_label.pack()
+
+add_budget_btn = tk.Button(budget_header_wrapper, text="+ Add Budget", bg="#222", fg="white")
 add_budget_btn.pack(pady=5)
 
-budget_form = tk.Frame(goals_frame, bg="#121212")
-budget_cat_entry = tk.Entry(budget_form, width=20)
+budget_form = tk.Frame(budget_header_wrapper, bg="#121212")
+budget_form.pack_forget()
+
+budget_cat_entry = ttk.Combobox(budget_form, values=[
+    "Food", "Transportation", "Housing", "Entertainment", 
+    "Utilities", "Healthcare", "Savings", "Other"
+], state="readonly", width=18)
+
 limit_entry = tk.Entry(budget_form, width=20)
-budget_start_entry = tk.Entry(budget_form, width=20)
-budget_end_entry = tk.Entry(budget_form, width=20)
-budget_cat_entry.insert(0, "Category")
-limit_entry.insert(0, "Limit")
-budget_start_entry.insert(0, "Start YYYY-MM-DD")
-budget_end_entry.insert(0, "End YYYY-MM-DD")
+budget_start_entry = DateEntry(budget_form, width=18, background="black", foreground="white", borderwidth=2, date_pattern='yyyy-mm-dd')
+budget_end_entry = DateEntry(budget_form, width=18, background="black", foreground="white", borderwidth=2, date_pattern='yyyy-mm-dd')
+
+budget_cat_entry.set("Select Category")
+limit_entry.insert(0, "Budget Limit ($)")
+
 budget_cat_entry.pack(pady=1)
 limit_entry.pack(pady=1)
 budget_start_entry.pack(pady=1)
 budget_end_entry.pack(pady=1)
+
 tk.Button(budget_form, text="Submit", command=lambda: submit_budget(), bg="#444", fg="white").pack(pady=5)
 budget_form.pack_forget()
 
-add_transaction_btn.config(command=lambda: transaction_form.pack())
-add_budget_btn.config(command=lambda: budget_form.pack())
+def toggle_transaction_form():
+    if transaction_form.winfo_ismapped():
+        transaction_form.pack_forget()
+        add_transaction_btn.config(text="+ Add Transaction")
+    else:
+        transaction_form.pack(pady=5)
+        add_transaction_btn.config(text="– Hide Transaction")
+        
+add_transaction_btn.config(command=toggle_transaction_form)
+
+def toggle_budget_form():
+    if budget_form.winfo_ismapped():
+        budget_form.pack_forget()
+        add_budget_btn.config(text="+ Add Budget")
+    else:
+        budget_form.pack(pady=5)
+        add_budget_btn.config(text="– Hide Budget")
+        
+add_budget_btn.config(command=toggle_budget_form)
 
 # Chart
 chart_frame = tk.Frame(landing_frame, bg="#121212", bd=1, relief="ridge")
@@ -183,48 +285,139 @@ def load_transactions_to_graph():
     ax.clear()
     if CURRENT_USER_ID is None:
         return
+    
     response = requests.get(f"http://localhost:5000/transactions/{CURRENT_USER_ID}")
     if response.status_code == 200:
         data = response.json()
-        dates = [item["date_created"][:10] for item in data]
-        amounts = [item["amount"] for item in data]
-        ax.plot(dates, amounts, marker="o", color="white", linewidth=2)
+        
+        # Group the data by type (Income/Expense) & Date of Transaction
+        expense_by_date = defaultdict(float)
+        income_by_date = defaultdict(float)
+
+        for item in data:
+            date = item["date_created"][:10]
+            amount = item["amount"]
+            if item["type"] == "Expense":
+                expense_by_date[date] += amount
+            elif item["type"] == "Income":
+                income_by_date[date] += amount
+                
+        # Sort user-transaction data by date
+        sorted_dates = sorted(set(expense_by_date.keys()) | set(income_by_date.keys()))
+        expense_values = [expense_by_date.get(d, 0) for d in sorted_dates]
+        income_values = [income_by_date.get(d, 0) for d in sorted_dates]
+
+        # Plot both lines (Expense and Income)
+        ax.plot(sorted_dates, expense_values, marker="o", color="red", linewidth=2, label="Expenses")
+        ax.plot(sorted_dates, income_values, marker="o", color="green", linewidth=2, label="Income")
+
+        # Final chart configuration
         ax.set_facecolor("#121212")
-        ax.set_title("Spending Trend", color="white")
+        ax.set_title("Income & Expense Trend", color="white")
         ax.set_ylabel("Amount ($)", color="white")
         ax.tick_params(colors="white")
+        ax.legend(facecolor="#121212", edgecolor="white", labelcolor="white")
         fig.patch.set_facecolor("#121212")
         chart_canvas.draw()
 
 def submit_transaction():
     if CURRENT_USER_ID is None:
+        messagebox.showerror("Unauthorized", "Please sign in to add a transaction.")
         return
+
+    category = category_entry.get()
+    amount_text = amount_entry.get()
+    date = date_entry.get()
+    type = type_entry.get()
+
+    # Validate amount is a number
+    try:
+        amount = float(amount_text)
+    except ValueError:
+        messagebox.showerror("Input Error", "Amount must be a number.")
+        return
+
+    if not category or category == "Select Category" or not date or type not in ["Income", "Expense"]:
+        messagebox.showerror("Input Error", "Please fill out all fields correctly.")
+        return
+
     data = {
         "user_id": CURRENT_USER_ID,
-        "category": category_entry.get(),
-        "amount": float(amount_entry.get()),
-        "date_created": date_entry.get()
+        "category": category,
+        "amount": amount,
+        "date_created": date,
+        "type": type
     }
+
     response = requests.post("http://localhost:5000/transactions", json=data)
     if response.status_code == 201:
-        print("Transaction added!")
         load_transactions_to_graph()
         display_transactions()
+        display_budgets()
+        messagebox.showinfo("Success", "Transaction added!")
+
+        # Clear entries
+        category_entry.set("Select Category")
+        amount_entry.delete(0, tk.END)
+        amount_entry.insert(0, "Amount ($)")
+        type_entry.set("Expense")
+
+        transaction_form.pack_forget()
+        add_transaction_btn.config(text="+ Add Transaction")
 
 def submit_budget():
     if CURRENT_USER_ID is None:
+        messagebox.showerror("Unauthorized", "Please sign in to add a budget goal.")
         return
+
+    category = budget_cat_entry.get()
+    limit_text = limit_entry.get()
+    start_date = budget_start_entry.get()
+    end_date = budget_end_entry.get()
+
+    # Validate category
+    if not category or category == "Select Category":
+        messagebox.showerror("Input Error", "Please select a valid budget category.")
+        return
+
+    # Validate limit is a number
+    try:
+        limit = float(limit_text)
+    except ValueError:
+        messagebox.showerror("Input Error", "Limit must be a number.")
+        return
+
+    if not start_date or not end_date:
+        messagebox.showerror("Input Error", "Please provide valid start and end dates.")
+        return
+
     data = {
         "user_id": CURRENT_USER_ID,
-        "category": budget_cat_entry.get(),
-        "limit_amount": float(limit_entry.get()),
-        "start_date": budget_start_entry.get(),
-        "end_date": budget_end_entry.get()
+        "category": category,
+        "limit_amount": limit,
+        "start_date": start_date,
+        "end_date": end_date
     }
+
     response = requests.post("http://localhost:5000/budget", json=data)
     if response.status_code == 201:
-        print("Budget goal added!")
         display_budgets()
+        messagebox.showinfo("Success", "Budget goal added successfully!")
+
+        # Reset fields
+        budget_cat_entry.set("Select Category")
+        limit_entry.delete(0, tk.END)
+        limit_entry.insert(0, "Limit Amount ($)")
+        budget_start_entry.delete(0, tk.END)
+        budget_start_entry.insert(0, "Start YYYY-MM-DD")
+        budget_end_entry.delete(0, tk.END)
+        budget_end_entry.insert(0, "End YYYY-MM-DD")
+
+        budget_form.pack_forget()
+        add_budget_btn.config(text="+ Add Budget")
+    else:
+        messagebox.showerror("Error", "Failed to add budget goal.")
+
 
 def display_transactions():
     if CURRENT_USER_ID is None:
@@ -232,34 +425,47 @@ def display_transactions():
 
     # Clear only transaction rows and column headers, keep label and add button
     for widget in tracking_frame.winfo_children():
-        if widget not in [income_label, add_transaction_btn, transaction_form]:
+        if widget != transaction_header_wrapper:
             widget.destroy()
+    
+    # Ensuring the form always comes right after the button
+    transaction_form.pack_forget()
+
+    # Wrapper 
+    wrapper = tk.Frame(tracking_frame, bg="#121212")
+    wrapper.pack(pady=5)
 
     # Column headers
-    header_frame = tk.Frame(tracking_frame, bg="#121212")
-    header_frame.pack(fill="x", pady=(5, 2))
-    tk.Label(header_frame, text="Date", width=15, bg="#121212", fg="gray", anchor="w").grid(row=0, column=0)
-    tk.Label(header_frame, text="Description", width=25, bg="#121212", fg="gray", anchor="w").grid(row=0, column=1)
-    tk.Label(header_frame, text="Amount", width=15, bg="#121212", fg="gray", anchor="w").grid(row=0, column=2)
+    header_frame = tk.Frame(wrapper, bg="#121212")
+    header_frame.pack()
+    
+    tk.Label(header_frame, text="Date", width=15, bg="#121212", fg="gray", anchor="center").grid(row=0, column=0)
+    tk.Label(header_frame, text="Category", width=25, bg="#121212", fg="gray", anchor="center").grid(row=0, column=1)
+    tk.Label(header_frame, text="Amount", width=15, bg="#121212", fg="gray", anchor="center").grid(row=0, column=2)
+    tk.Label(header_frame, text="Type", width=15, bg="#121212", fg="gray", anchor="center").grid(row=0, column=3)
 
     # Transactions list
     response = requests.get(f"http://localhost:5000/transactions/{CURRENT_USER_ID}")
     if response.status_code != 200:
-        print("Failed to load transactions:", response.text)
+        messagebox.showinfo("Failure", "Failed to load Transactions!")
         return
 
     data = response.json()
     for i, txn in enumerate(data):
-        row = tk.Frame(tracking_frame, bg="#121212")
+        row = tk.Frame(wrapper, bg="#121212")
         row.pack(fill="x", pady=1)
-        tk.Label(row, text=txn["date_created"][:10], width=15, bg="#121212", fg="white", anchor="w").grid(row=0, column=0)
-        tk.Label(row, text=txn["category"], width=25, bg="#121212", fg="white", anchor="w").grid(row=0, column=1)
-        tk.Label(row, text=f"${txn['amount']:.2f}", width=15, bg="#121212", fg="white", anchor="w").grid(row=0, column=2)
+        tk.Label(row, text=txn["date_created"][:10], width=15, bg="#121212", fg="white", anchor="center").grid(row=0, column=0)
+        tk.Label(row, text=txn["category"], width=25, bg="#121212", fg="white", anchor="center").grid(row=0, column=1)
+        tk.Label(row, text=f"${txn['amount']:.2f}", width=15, bg="#121212", fg="white", anchor="center").grid(row=0, column=2)
+        tk.Label(row, text=txn["type"], width=15, bg="#121212", fg="white", anchor="center").grid(row=0, column=3)
 
 def display_budgets():
-    for widget in goals_frame.pack_slaves():
-        if isinstance(widget, tk.Label) and widget.cget("text") not in ["Budget Goals"]:
+    for widget in goals_frame.winfo_children():
+        if widget != budget_header_wrapper:
             widget.destroy()
+            
+    budget_form.pack_forget()
+    
     response = requests.get(f"http://localhost:5000/budgets/{CURRENT_USER_ID}")
     if response.status_code == 200:
         data = response.json()
@@ -271,9 +477,13 @@ def display_budgets():
             for t in transactions:
                 if t["category"] == cat and budget["start_date"] <= t["date_created"] <= budget["end_date"]:
                     spent += t["amount"]
-            percent = min(1.0, spent / limit) if limit else 0
+            percent = spent / limit if limit else 0
+
+             # Style choice based on budget status
+            bar_style = "green.Horizontal.TProgressbar" if spent <= limit else "red.Horizontal.TProgressbar"
+
             tk.Label(goals_frame, text=f"{cat}: ${spent:.0f} / ${limit:.0f}", bg="#121212", fg="white").pack()
-            ttk.Progressbar(goals_frame, value=percent*100, maximum=100).pack(fill="x", padx=20, pady=2)
+            ttk.Progressbar(goals_frame, style=bar_style, value=min(percent, 1.0)*100, maximum=100).pack(fill="x", padx=20, pady=2)
 
 show_frame(landing_frame)
 root.mainloop()
