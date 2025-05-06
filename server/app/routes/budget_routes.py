@@ -45,6 +45,7 @@ def get_budgets(user_id):
     session = Session()
     budgets = session.query(Budget).filter_by(user_id=user_id).all()
     result = [{
+        "id": b.id,
         "category": b.category,
         "limit_amount": b.limit_amount,
         "start_date": b.start_date.strftime('%Y-%m-%d'),
@@ -52,3 +53,18 @@ def get_budgets(user_id):
     } for b in budgets]
     session.close()
     return jsonify(result)
+
+@budget.route('/budget/<int:budget_id>', methods=['DELETE'])
+def delete_budget(budget_id):
+    session = Session()
+    budget_entry = session.query(Budget).get(budget_id)
+
+    if not budget_entry:
+        session.close()
+        return jsonify({"error": "Budget not found"}), 404
+
+    session.delete(budget_entry)
+    session.commit()
+    session.close()
+
+    return jsonify({"message": "Budget deleted successfully."}), 200

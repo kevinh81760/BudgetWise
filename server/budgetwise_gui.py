@@ -435,14 +435,11 @@ def display_transactions():
     wrapper = tk.Frame(tracking_frame, bg="#121212")
     wrapper.pack(pady=5)
 
-    # Column headers
-    header_frame = tk.Frame(wrapper, bg="#121212")
-    header_frame.pack()
-    
-    tk.Label(header_frame, text="Date", width=15, bg="#121212", fg="gray", anchor="center").grid(row=0, column=0)
-    tk.Label(header_frame, text="Category", width=25, bg="#121212", fg="gray", anchor="center").grid(row=0, column=1)
-    tk.Label(header_frame, text="Amount", width=15, bg="#121212", fg="gray", anchor="center").grid(row=0, column=2)
-    tk.Label(header_frame, text="Type", width=15, bg="#121212", fg="gray", anchor="center").grid(row=0, column=3)
+    # Column headers    
+    tk.Label(wrapper, text="Date", width=16, bg="#121212", fg="gray", anchor="center").grid(row=0, column=0, padx=6, pady=2)
+    tk.Label(wrapper, text="Category", width=26, bg="#121212", fg="gray", anchor="center").grid(row=0, column=1, padx=6, pady=2)
+    tk.Label(wrapper, text="Amount", width=14, bg="#121212", fg="gray", anchor="center").grid(row=0, column=2, padx=6, pady=2)
+    tk.Label(wrapper, text="Type", width=13, bg="#121212", fg="gray", anchor="center").grid(row=0, column=3, padx=6, pady=2)
 
     # Transactions list
     response = requests.get(f"http://localhost:5000/transactions/{CURRENT_USER_ID}")
@@ -451,13 +448,15 @@ def display_transactions():
         return
 
     data = response.json()
-    for i, txn in enumerate(data):
-        row = tk.Frame(wrapper, bg="#121212")
-        row.pack(fill="x", pady=1)
-        tk.Label(row, text=txn["date_created"][:10], width=15, bg="#121212", fg="white", anchor="center").grid(row=0, column=0)
-        tk.Label(row, text=txn["category"], width=25, bg="#121212", fg="white", anchor="center").grid(row=0, column=1)
-        tk.Label(row, text=f"${txn['amount']:.2f}", width=15, bg="#121212", fg="white", anchor="center").grid(row=0, column=2)
-        tk.Label(row, text=txn["type"], width=15, bg="#121212", fg="white", anchor="center").grid(row=0, column=3)
+    for i, txn in enumerate(data, start=1):
+        tk.Label(wrapper, text=txn["date_created"][:10], width=16, bg="#121212", fg="white", anchor="center").grid(row=i, column=0, padx=6, pady=1)
+        tk.Label(wrapper, text=txn["category"], width=26, bg="#121212", fg="white", anchor="center").grid(row=i, column=1, padx=6, pady=1)
+        tk.Label(wrapper, text=f"${txn['amount']:.2f}", width=14, bg="#121212", fg="white", anchor="center").grid(row=i, column=2, padx=6, pady=1)
+        tk.Label(wrapper, text=txn["type"], width=13, bg="#121212", fg="white", anchor="center").grid(row=i, column=3, padx=6, pady=1)
+
+        delete_btn = tk.Button(wrapper, text="X", bg="#aa0000", fg="white", font=("Arial", 8), width=3,
+                           command=lambda txn_id=txn["id"]: delete_transaction_by_id(txn_id))
+        delete_btn.grid(row=i, column=4, padx=6, pady=1)
 
 def display_budgets():
     for widget in goals_frame.winfo_children():
@@ -469,11 +468,13 @@ def display_budgets():
     response = requests.get(f"http://localhost:5000/budgets/{CURRENT_USER_ID}")
     if response.status_code == 200:
         data = response.json()
+        
         for budget in data:
             cat = budget["category"]
             limit = budget["limit_amount"]
             spent = 0
             transactions = requests.get(f"http://localhost:5000/transactions/{CURRENT_USER_ID}").json()
+            
             for t in transactions:
                 if t["category"] == cat and budget["start_date"] <= t["date_created"] <= budget["end_date"]:
                     spent += t["amount"]
@@ -482,8 +483,43 @@ def display_budgets():
              # Style choice based on budget status
             bar_style = "green.Horizontal.TProgressbar" if spent <= limit else "red.Horizontal.TProgressbar"
 
-            tk.Label(goals_frame, text=f"{cat}: ${spent:.0f} / ${limit:.0f}", bg="#121212", fg="white").pack()
-            ttk.Progressbar(goals_frame, style=bar_style, value=min(percent, 1.0)*100, maximum=100).pack(fill="x", padx=20, pady=2)
+            tk.Label(goals_frame, text=f"{cat}: ${spent:.0f} / ${limit:.0f}", bg="#121212", fg="white").pack(anchor="w", padx=20)
+
+            # Create a sub-frame for bar + delete button
+            bar_frame = tk.Frame(goals_frame, bg="#121212")
+            bar_frame.pack(fill="x", padx=20, pady=(0, 6))
+
+            # Add progress bar 
+            ttk.Progressbar(bar_frame, style=bar_style, value=min(percent, 1.0)*100, maximum=100, length=200).pack(side="left", fill="x", expand=True)
+
+            # Add small delete button
+            delete_btn = tk.Button(bar_frame, text="X", bg="#aa0000", fg="white", font=("Arial", 8), width=3, height=1,
+                       command=lambda bid=budget["id"]: delete_budget_by_id(bid))
+            delete_btn.pack(side="left", padx=(8, 0))
+
+            
+def delete_transaction_by_id(transaction_id):
+    confirm = messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this transaction?")
+    if confirm:
+        response = requests.delete(f"http://localhost:5000/transaction/{transaction_id}")
+        if response.status_code == 200:
+            display_transactions()
+            load_transactions_to_graph()
+            display_budgets()
+            messagebox.showinfo("Deleted", "Transaction deleted successfully.")
+        else:
+            messagebox.showerror("Error", "Failed to delete transaction.")
+
+def delete_budget_by_id(budget_id):
+    confirm = messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this budget?")
+    if confirm:
+        response = requests.delete(f"http://localhost:5000/budget/{budget_id}")
+        if response.status_code == 200:
+            display_budgets()
+            messagebox.showinfo("Deleted", "Budget deleted successfully.")
+        else:
+            messagebox.showerror("Error", "Failed to delete budget.")
+
 
 show_frame(landing_frame)
 root.mainloop()

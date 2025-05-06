@@ -45,3 +45,18 @@ def get_transactions(user_id):
     ]
     session_db.close()
     return jsonify(result)
+
+@transaction.route('/transaction/<int:transaction_id>', methods=['DELETE'])
+def delete_transaction(transaction_id):
+    session_db = Session()
+    transaction = session_db.query(UserTransaction).get(transaction_id)
+
+    if not transaction:
+        session_db.close()
+        return jsonify({"error": "Transaction not found"}), 404
+
+    session_db.delete(transaction)
+    session_db.commit()
+    session_db.close()
+
+    return jsonify({"message": "Transaction deleted successfully."}), 200
