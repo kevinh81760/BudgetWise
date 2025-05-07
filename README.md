@@ -47,18 +47,23 @@
 
 ```
 BudgetWise/
-├── app.py                   # Flask app entry point
-├── budgetwise_gui.py        # Main Tkinter GUI interface
-├── database_manager.py      # Handles DB connection setup
-├── models/                  # SQLAlchemy ORM models
-│   ├── user.py
-│   ├── transaction.py
-│   └── budget.py
-├── routes/                  # Flask route handlers
-│   ├── auth_routes.py
-│   ├── budget_routes.py
-│   └── transaction_routes.py
-└── requirements.txt         # Python dependencies
+├── server/
+│   ├── run.py                 # Flask app entry point
+│   ├── budgetwise_gui.py      # Main Tkinter GUI interface
+│   ├── config.py              # App configuration settings
+│   ├── database.py            # DB connection setup
+│   ├── requirements.txt       # Python dependencies
+│   ├── models/                # SQLAlchemy ORM models
+│   │   ├── user.py
+│   │   ├── transaction.py
+│   │   └── budget.py
+│   └── app/
+│       └── routes/            # Flask route handlers
+│           ├── auth_routes.py
+│           ├── budget_routes.py
+│           └── transaction_routes.py
+├── budgetwise.db
+└── README.md
 ```
 
 ---
