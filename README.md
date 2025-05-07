@@ -118,6 +118,16 @@ source BudgetWiseVenv/bin/activate
 python server/budgetwise_gui.py
 ```
 
+### 💡 Recommended Setup Tool
+
+We recommend using **[Visual Studio Code](https://code.visualstudio.com/)** to run BudgetWise. It makes it easier to:
+
+- Open the project folder
+- Use the built-in terminal for activating the virtual environment and running scripts
+- Keep both backend and GUI windows accessible in one place
+
+No advanced setup is required — just open the folder and follow the steps in the terminal.
+
 ---
 
 ## 🐞 Known Bugs or Limitations
