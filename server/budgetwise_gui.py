@@ -51,16 +51,28 @@ tk.Label(login_frame, text="Password", bg="black", fg="white").pack()
 login_password.pack()
 
 def clear_transactions():
+    """
+    Clears all transaction widgets from the tracking frame,
+    except the header row.
+    """
     for widget in tracking_frame.winfo_children():
         if widget != transaction_header_wrapper:
             widget.destroy()
 
 def clear_budgets():
+    """
+    Clears all budget widgets from the goals frame,
+    except the header row.
+    """
     for widget in goals_frame.winfo_children():
         if widget != budget_header_wrapper:
             widget.destroy()
 
 def clear_chart():
+    """
+    Resets and redraws the matplotlib chart area
+    with default styling and empty data.
+    """
     ax.clear()
     ax.set_facecolor("#121212")
     ax.set_title("Income & Expense Trend", color="white")
@@ -70,6 +82,10 @@ def clear_chart():
     chart_canvas.draw()
             
 def logout_user():
+    """
+    Logs the user out by clearing the session, form fields,
+    transaction and budget displays, and resets the chart.
+    """
     global CURRENT_USER_ID
     CURRENT_USER_ID = None
     user_action_button.config(text="Sign In", command=lambda: show_frame(auth_frame))
@@ -87,12 +103,18 @@ def logout_user():
     show_frame(auth_frame)
 
 def login_user():
+    """
+    Logs in the user using provided credentials.
+    On success, updates the interface and loads their data.
+    """
     global CURRENT_USER_ID
     data = {
         "username": login_username.get(),
         "password": login_password.get()
     }
     response = requests.post("http://localhost:5000/login", json=data)
+    
+    # If logged in successfully, budgets, transactions, and graph are loaded, and user can now logout
     if response.status_code == 200:
         CURRENT_USER_ID = response.json()["user_id"]
         show_frame(landing_frame)
@@ -117,6 +139,10 @@ tk.Label(register_frame, text="Password", bg="black", fg="white").pack()
 register_password.pack()
 
 def register_user():
+    """
+    Registers a new user with the entered username and password.
+    Provides feedback based on the result of the request.
+    """
     data = {
         "username": register_username.get(),
         "password": register_password.get()
@@ -254,6 +280,12 @@ tk.Button(budget_form, text="Submit", command=lambda: submit_budget(), bg="#444"
 budget_form.pack_forget()
 
 def toggle_transaction_form():
+    """
+    Shows or hides the transaction form widget.
+
+    If the form is currently visible, it hides it and updates the button text.
+    If hidden, it displays the form and updates the button text.
+    """
     if transaction_form.winfo_ismapped():
         transaction_form.pack_forget()
         add_transaction_btn.config(text="+ Add Transaction")
@@ -264,6 +296,12 @@ def toggle_transaction_form():
 add_transaction_btn.config(command=toggle_transaction_form)
 
 def toggle_budget_form():
+    """
+    Shows or hides the budget form widget.
+
+    If the form is currently visible, it hides it and updates the button text.
+    If hidden, it displays the form and updates the button text.
+    """
     if budget_form.winfo_ismapped():
         budget_form.pack_forget()
         add_budget_btn.config(text="+ Add Budget")
@@ -282,6 +320,12 @@ chart_canvas = FigureCanvasTkAgg(fig, master=chart_frame)
 chart_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
 def load_transactions_to_graph():
+    """
+    Loads and plots a user's income and expense transactions on the chart.
+
+    Groups transactions by date and type (Income/Expense),
+    then displays a trend line for each category.
+    """
     ax.clear()
     if CURRENT_USER_ID is None:
         return
@@ -321,6 +365,12 @@ def load_transactions_to_graph():
         chart_canvas.draw()
 
 def submit_transaction():
+    """
+    Submits a new transaction (income or expense) after validating user input.
+
+    Sends a POST request to the backend. On success, refreshes the chart,
+    transactions list, and budget display. Also resets the input form.
+    """
     if CURRENT_USER_ID is None:
         messagebox.showerror("Unauthorized", "Please sign in to add a transaction.")
         return
@@ -366,6 +416,12 @@ def submit_transaction():
         add_transaction_btn.config(text="+ Add Transaction")
 
 def submit_budget():
+    """
+    Submits a new budget goal for the current user after validating input.
+
+    Sends a POST request to the backend. On success, updates the UI
+    and resets the budget input form.
+    """
     if CURRENT_USER_ID is None:
         messagebox.showerror("Unauthorized", "Please sign in to add a budget goal.")
         return
@@ -420,6 +476,10 @@ def submit_budget():
 
 
 def display_transactions():
+    """
+    Retrieves and displays all transactions for the logged-in user
+    in a formatted grid layout with delete buttons.
+    """
     if CURRENT_USER_ID is None:
         return
 
@@ -459,6 +519,12 @@ def display_transactions():
         delete_btn.grid(row=i, column=4, padx=6, pady=1)
 
 def display_budgets():
+    """
+    Retrieves and displays all budget goals for the current user.
+
+    Includes dynamic progress bars to show usage and
+    delete buttons to remove individual budgets.
+    """
     for widget in goals_frame.winfo_children():
         if widget != budget_header_wrapper:
             widget.destroy()
@@ -499,6 +565,12 @@ def display_budgets():
 
             
 def delete_transaction_by_id(transaction_id):
+    """
+    Deletes a transaction after confirming with the user.
+
+    On success, refreshes the UI components related to
+    transactions, budget usage, and chart.
+    """
     confirm = messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this transaction?")
     if confirm:
         response = requests.delete(f"http://localhost:5000/transaction/{transaction_id}")
@@ -511,6 +583,11 @@ def delete_transaction_by_id(transaction_id):
             messagebox.showerror("Error", "Failed to delete transaction.")
 
 def delete_budget_by_id(budget_id):
+    """
+    Deletes a budget goal after confirmation from the user.
+
+    On success, refreshes the displayed budget list.
+    """
     confirm = messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this budget?")
     if confirm:
         response = requests.delete(f"http://localhost:5000/budget/{budget_id}")
