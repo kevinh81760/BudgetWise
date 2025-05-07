@@ -71,7 +71,13 @@ git clone https://github.com/kevinh81760/BudgetWise.git
 cd BudgetWise
 ```
 
-2. Set Up a Virtual Environment
+2. Switch to the Correct Branch  
+If you're not on the working branch, switch to `frontend-updates`:
+```bash
+git checkout frontend-updates
+```
+
+3. Set Up a Virtual Environment
 
 On Windows:
 ```bash
@@ -85,19 +91,19 @@ python3 -m venv BudgetWiseVenv
 source BudgetWiseVenv/bin/activate
 ```
 
-3. Install Dependencies  
+4. Install Dependencies  
 Run this from the project root:
 ```bash
 pip install -r server/requirements.txt
 ```
 
-4. Run the Flask Backend  
+5. Run the Flask Backend  
 From the project root:
 ```bash
 python -m server.run
 ```
 
-5. Run the GUI (in a separate terminal)  
+6. Run the GUI (in a separate terminal)  
 Open a new terminal window, navigate to the project root, and activate your virtual environment again:
 
 On Windows:
