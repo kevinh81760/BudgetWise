@@ -128,6 +128,8 @@ We recommend using **[Visual Studio Code](https://code.visualstudio.com/)** to r
 
 No advanced setup is required — just open the folder and follow the steps in the terminal.
 
+USE THE GUI in Fullscreen for full data view (App is designed to be ran on FullScreen Desktop)
+
 ---
 
 ## 🐞 Known Bugs or Limitations
